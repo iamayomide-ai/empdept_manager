@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="text-muted small">Departments</div>
+            <div class="fs-2 fw-bold">{{ departments|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="text-muted small">Employees</div>
+            <div class="fs-2 fw-bold">{{ employees|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="text-muted small">Managers</div>
+            <div class="fs-2 fw-bold">{{ manager_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="text-muted small">Total Payroll</div>
+            <div class="fs-4 fw-bold">₦{{ "{:,.2f}".format(total_salary) }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card card-stat p-3 mb-4">
+            <h5>Departments</h5>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Name</th><th>Location</th><th>Budget</th></tr></thead>
+                <tbody>
+                {% for d in departments %}
+                    <tr><td>{{ d.name }}</td><td>{{ d.location }}</td><td>₦{{ "{:,.0f}".format(d.budget) }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-stat p-3 mb-4">
+            <h5>Recent Employees</h5>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Name</th><th>Position</th><th>Role</th></tr></thead>
+                <tbody>
+                {% for e in employees[:6] %}
+                    <tr>
+                        <td>{{ e.full_name }}</td>
+                        <td>{{ e.position }}</td>
+                        <td><span class="badge {{ 'badge-manager' if e.role_type=='manager' else 'badge-staff' }}">{{ e.role_type }}</span></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
