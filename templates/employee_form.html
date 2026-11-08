@@ -1,62 +1,117 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit' if employee else 'New' }} Employee{% endblock %}
+{% block title %}{{ 'Edit' if employee else 'Enroll New' }} Employee{% endblock %}
+
 {% block content %}
-<h2 class="mb-4">{{ 'Edit' if employee else 'New' }} Employee</h2>
-<div class="card card-stat p-4" style="max-width: 600px;">
-    <form method="POST">
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label class="form-label">First Name</label>
-                <input type="text" class="form-control" name="first_name" value="{{ employee._first_name if employee else '' }}" required>
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+        <div class="mb-3">
+            <a href="{{ url_for('list_employees') }}" class="text-decoration-none text-muted small d-inline-flex align-items-center gap-1">
+                <i class="bi bi-arrow-left"></i> Back to Personnel Roster
+            </a>
+        </div>
+
+        <div class="card card-modern shadow-sm overflow-hidden">
+            <div class="p-4 border-bottom bg-white d-flex align-items-center gap-3">
+                <div class="stat-icon mb-0" style="width: 44px; height: 44px; background: #eef2ff; color: #4f46e5;">
+                    <i class="bi bi-person-badge fs-4"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold mb-0 text-dark">{{ 'Edit' if employee else 'Enroll New' }} Employee</h4>
+                    <p class="text-muted small mb-0">Inserts or updates entity records in the <code>employees</code> table.</p>
+                </div>
             </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Last Name</label>
-                <input type="text" class="form-control" name="last_name" value="{{ employee._last_name if employee else '' }}" required>
-            </div>
+
+            <form method="POST" class="p-4 bg-white">
+                <!-- Personal Info Section -->
+                <div class="mb-4">
+                    <h6 class="text-uppercase text-muted fw-bold small mb-3">1. Personal Information</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="first_name" value="{{ employee._first_name if employee else '' }}" placeholder="e.g. Ada" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="last_name" value="{{ employee._last_name if employee else '' }}" placeholder="e.g. Okafor" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email Address <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control" name="email" value="{{ employee.email if employee else '' }}" placeholder="ada.okafor@company.com" required>
+                            </div>
+                            <div class="form-text small text-muted"><i class="bi bi-shield-check text-success me-1"></i> Enforced by <code>UNIQUE</code> constraint.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Phone Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-telephone"></i></span>
+                                <input type="text" class="form-control" name="phone" value="{{ employee.phone if employee and employee.phone else '' }}" placeholder="08012345678">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4 text-muted">
+
+                <!-- Employment & Department Info -->
+                <div class="mb-4">
+                    <h6 class="text-uppercase text-muted fw-bold small mb-3">2. Department Assignment & Role</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Job Position / Title <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="position" value="{{ employee.position if employee else '' }}" placeholder="e.g. Database Administrator" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Assigned Department <span class="text-danger">*</span></label>
+                            <select class="form-select" name="department_id" required>
+                                {% for d in departments %}
+                                    <option value="{{ d.department_id }}" {% if employee and employee.department_id == d.department_id %}selected{% endif %}>
+                                        {{ d.name }} ({{ d.location }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text small text-muted"><i class="bi bi-link-45deg me-1"></i> <code>FOREIGN KEY (department_id) REFERENCES departments</code></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Monthly Salary (₦) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted">₦</span>
+                                <input type="number" step="1000" min="0" class="form-control" name="salary" value="{{ employee.salary if employee else '250000' }}" required>
+                            </div>
+                            <div class="form-text small text-muted"><i class="bi bi-check-circle me-1"></i> Checked via <code>CHECK (salary >= 0)</code></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Hire Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="hire_date" value="{{ employee.hire_date if employee else '' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Role Classification <span class="text-danger">*</span></label>
+                            <select class="form-select" name="role_type" id="roleType" onchange="document.getElementById('teamSizeWrap').style.display = this.value === 'manager' ? 'block' : 'none';">
+                                <option value="staff" {% if employee and employee.role_type == 'staff' %}selected{% endif %}>Staff Personnel</option>
+                                <option value="manager" {% if employee and employee.role_type == 'manager' %}selected{% endif %}>Team Manager</option>
+                            </select>
+                            <div class="form-text small text-muted">Discriminator for Single Table Inheritance.</div>
+                        </div>
+                        <div class="col-md-6" id="teamSizeWrap" style="display: {{ 'block' if employee and employee.role_type == 'manager' else 'none' }};">
+                            <label class="form-label fw-semibold">Subordinate Team Size</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted"><i class="bi bi-people"></i></span>
+                                <input type="number" min="1" class="form-control" name="team_size" value="{{ employee.team_size if employee and employee.role_type == 'manager' else 4 }}" placeholder="Direct reports">
+                            </div>
+                            <div class="form-text small text-muted">Nullable column in DB, populated only for Managers.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between pt-3 border-top">
+                    <a href="{{ url_for('list_employees') }}" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary d-flex align-items-center gap-2">
+                        <i class="bi bi-check2-circle"></i> Save Employee
+                    </button>
+                </div>
+            </form>
         </div>
-        <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" class="form-control" name="email" value="{{ employee.email if employee else '' }}" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Phone</label>
-            <input type="text" class="form-control" name="phone" value="{{ employee.phone if employee else '' }}">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Position</label>
-            <input type="text" class="form-control" name="position" value="{{ employee.position if employee else '' }}" required>
-        </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Salary (₦)</label>
-                <input type="number" step="0.01" class="form-control" name="salary" value="{{ employee.salary if employee else '' }}" required>
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Hire Date</label>
-                <input type="date" class="form-control" name="hire_date" value="{{ employee.hire_date if employee else '' }}" required>
-            </div>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Department</label>
-            <select class="form-select" name="department_id" required>
-                {% for d in departments %}
-                    <option value="{{ d.department_id }}" {% if employee and employee.department_id == d.department_id %}selected{% endif %}>{{ d.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Role Type</label>
-            <select class="form-select" name="role_type" id="roleType" onchange="document.getElementById('teamSizeWrap').style.display = this.value === 'manager' ? 'block' : 'none';">
-                <option value="staff" {% if employee and employee.role_type == 'staff' %}selected{% endif %}>Staff</option>
-                <option value="manager" {% if employee and employee.role_type == 'manager' %}selected{% endif %}>Manager</option>
-            </select>
-        </div>
-        <div class="mb-3" id="teamSizeWrap" style="display: {{ 'block' if employee and employee.role_type == 'manager' else 'none' }};">
-            <label class="form-label">Team Size (if Manager)</label>
-            <input type="number" class="form-control" name="team_size" value="{{ employee.team_size if employee and employee.role_type == 'manager' else 0 }}">
-        </div>
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a href="{{ url_for('list_employees') }}" class="btn btn-link">Cancel</a>
-    </form>
+    </div>
 </div>
 {% endblock %}

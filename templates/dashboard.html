@@ -1,63 +1,222 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Operations Dashboard{% endblock %}
+
 {% block content %}
-<h2 class="mb-4">Dashboard</h2>
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card card-stat p-3 text-center">
-            <div class="text-muted small">Departments</div>
-            <div class="fs-2 fw-bold">{{ departments|length }}</div>
-        </div>
+<!-- Header Hero Banner -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="letter-spacing: -0.03em;">Operations Dashboard</h2>
+        <p class="text-muted mb-0">Overview of organizational structure, workforce analytics, and departmental payroll.</p>
     </div>
-    <div class="col-md-3">
-        <div class="card card-stat p-3 text-center">
-            <div class="text-muted small">Employees</div>
-            <div class="fs-2 fw-bold">{{ employees|length }}</div>
-        </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('new_department') }}" class="btn btn-outline-secondary d-flex align-items-center gap-2">
+            <i class="bi bi-folder-plus"></i> New Department
+        </a>
+        <a href="{{ url_for('new_employee') }}" class="btn btn-primary d-flex align-items-center gap-2">
+            <i class="bi bi-person-plus-fill"></i> Add Employee
+        </a>
     </div>
-    <div class="col-md-3">
-        <div class="card card-stat p-3 text-center">
-            <div class="text-muted small">Managers</div>
-            <div class="fs-2 fw-bold">{{ manager_count }}</div>
+</div>
+
+<!-- Database Architecture Spec Pill Box -->
+<div class="card card-modern p-3 mb-4 bg-white">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2 text-muted small">
+            <i class="bi bi-cpu text-primary fs-5"></i>
+            <span class="fw-bold text-dark">DBMS Technical Specifications:</span>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card card-stat p-3 text-center">
-            <div class="text-muted small">Total Payroll</div>
-            <div class="fs-4 fw-bold">₦{{ "{:,.2f}".format(total_salary) }}</div>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge bg-light text-dark border"><i class="bi bi-hdd-network text-primary me-1"></i> SQLite Engine</span>
+            <span class="badge bg-light text-dark border"><i class="bi bi-check2-circle text-success me-1"></i> 3NF Normalized</span>
+            <span class="badge bg-light text-dark border"><i class="bi bi-diagram-2 text-info me-1"></i> Single Table Inheritance</span>
+            <span class="badge bg-light text-dark border"><i class="bi bi-lightning-charge text-warning me-1"></i> B-Tree Indexed FK</span>
+            <span class="badge bg-light text-dark border"><i class="bi bi-shield-lock text-purple me-1"></i> SQLi Protected</span>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card card-stat p-3 mb-4">
-            <h5>Departments</h5>
-            <table class="table table-sm mb-0">
-                <thead><tr><th>Name</th><th>Location</th><th>Budget</th></tr></thead>
-                <tbody>
-                {% for d in departments %}
-                    <tr><td>{{ d.name }}</td><td>{{ d.location }}</td><td>₦{{ "{:,.0f}".format(d.budget) }}</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
+<!-- 4 Key Metric Cards -->
+<div class="row g-3 mb-4">
+    <!-- Total Employees -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card-stat">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="text-muted small fw-semibold text-uppercase">Total Headcount</div>
+                    <div class="fs-2 fw-bolder mt-1 text-dark">{{ employees|length }}</div>
+                </div>
+                <div class="stat-icon" style="background: #eef2ff; color: #4f46e5;">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-1 text-muted small mt-2">
+                <span class="badge bg-primary-subtle text-primary fw-semibold">Active Staff</span>
+                <span>across company</span>
+            </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card card-stat p-3 mb-4">
-            <h5>Recent Employees</h5>
-            <table class="table table-sm mb-0">
-                <thead><tr><th>Name</th><th>Position</th><th>Role</th></tr></thead>
-                <tbody>
-                {% for e in employees[:6] %}
-                    <tr>
-                        <td>{{ e.full_name }}</td>
-                        <td>{{ e.position }}</td>
-                        <td><span class="badge {{ 'badge-manager' if e.role_type=='manager' else 'badge-staff' }}">{{ e.role_type }}</span></td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+
+    <!-- Active Departments -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card-stat">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="text-muted small fw-semibold text-uppercase">Departments</div>
+                    <div class="fs-2 fw-bolder mt-1 text-dark">{{ departments|length }}</div>
+                </div>
+                <div class="stat-icon" style="background: #eff6ff; color: #0284c7;">
+                    <i class="bi bi-building"></i>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-1 text-muted small mt-2">
+                <span class="badge bg-info-subtle text-info-emphasis fw-semibold">1:N Cardinality</span>
+                <span>operational units</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Managers -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card-stat">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="text-muted small fw-semibold text-uppercase">Management Staff</div>
+                    <div class="fs-2 fw-bolder mt-1 text-dark">{{ manager_count }}</div>
+                </div>
+                <div class="stat-icon" style="background: #fdf4ff; color: #a855f7;">
+                    <i class="bi bi-person-badge-fill"></i>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-1 text-muted small mt-2">
+                <span class="badge bg-purple-subtle text-purple fw-semibold" style="background-color: #f3e8ff; color: #7c3aed;">Subtype Role</span>
+                <span>team supervisors</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Monthly Payroll -->
+    <div class="col-sm-6 col-xl-3">
+        <div class="card-stat">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="text-muted small fw-semibold text-uppercase">Total Payroll</div>
+                    <div class="fs-3 fw-bolder mt-1 text-dark">₦{{ "{:,.2f}".format(total_salary) }}</div>
+                </div>
+                <div class="stat-icon" style="background: #ecfdf5; color: #10b981;">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-1 text-muted small mt-2">
+                <span class="badge bg-success-subtle text-success fw-semibold">Aggregated via SQL</span>
+                <span>in-engine sum</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2 Side-by-Side Data Panes -->
+<div class="row g-4">
+    <!-- Left: Departments -->
+    <div class="col-lg-6">
+        <div class="card card-modern h-100 overflow-hidden">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-grid text-primary"></i>
+                    <h5 class="mb-0 fw-bold fs-6">Departments & Budgets</h5>
+                </div>
+                <a href="{{ url_for('list_departments') }}" class="btn btn-sm btn-link text-decoration-none p-0">
+                    View All ({{ departments|length }}) &rarr;
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom mb-0">
+                    <thead>
+                        <tr>
+                            <th>Department</th>
+                            <th>Location</th>
+                            <th class="text-end">Budget</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for d in departments %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ d.name }}</div>
+                            </td>
+                            <td>
+                                <span class="text-muted small"><i class="bi bi-geo-alt me-1 text-secondary"></i>{{ d.location }}</span>
+                            </td>
+                            <td class="text-end">
+                                <span class="fw-bold text-dark">₦{{ "{:,.0f}".format(d.budget) }}</span>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">No departments created yet.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Recent Employees -->
+    <div class="col-lg-6">
+        <div class="card card-modern h-100 overflow-hidden">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-people text-primary"></i>
+                    <h5 class="mb-0 fw-bold fs-6">Workforce Roster</h5>
+                </div>
+                <a href="{{ url_for('list_employees') }}" class="btn btn-sm btn-link text-decoration-none p-0">
+                    View All ({{ employees|length }}) &rarr;
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-custom mb-0">
+                    <thead>
+                        <tr>
+                            <th>Personnel</th>
+                            <th>Position</th>
+                            <th class="text-end">Role</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for e in employees[:6] %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="avatar-circle">
+                                        {{ e._first_name[0] }}{{ e._last_name[0] }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold text-dark">{{ e.full_name }}</div>
+                                        <div class="text-muted small" style="font-size: 0.78rem;">{{ e.email }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-secondary small">{{ e.position }}</div>
+                            </td>
+                            <td class="text-end">
+                                <span class="badge {{ 'badge-manager' if e.role_type=='manager' else 'badge-staff' }}">
+                                    {% if e.role_type == 'manager' %}
+                                        <i class="bi bi-star-fill me-1"></i> Manager
+                                    {% else %}
+                                        <i class="bi bi-person me-1"></i> Staff
+                                    {% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">No employees enrolled yet.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

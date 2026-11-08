@@ -1,54 +1,186 @@
 {% extends "base.html" %}
-{% block title %}Employees{% endblock %}
+{% block title %}Employees Directory{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Employees</h2>
-    <a href="{{ url_for('new_employee') }}" class="btn btn-primary">+ New Employee</a>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <h2 class="fw-bold mb-1" style="letter-spacing: -0.03em;">Personnel Roster</h2>
+        <p class="text-muted mb-0">Single Table Inheritance model (<code>employees</code>) representing Polymorphic Roles (Staff & Manager).</p>
+    </div>
+    <a href="{{ url_for('new_employee') }}" class="btn btn-primary d-flex align-items-center gap-2">
+        <i class="bi bi-person-plus-fill"></i> Add Employee
+    </a>
 </div>
-<div class="card card-stat p-3">
-    <table class="table align-middle">
-        <thead><tr><th>Name</th><th>Position</th><th>Department</th><th>Role</th><th>Salary</th><th></th></tr></thead>
-        <tbody>
-        {% for e in employees %}
-            <tr>
-                <td>{{ e.full_name }}</td>
-                <td>{{ e.position }}</td>
-                <td>{{ e.department_name }}</td>
-                <td>
-                    <span class="badge {{ 'badge-manager' if e.role_type=='manager' else 'badge-staff' }}">
-                        {{ e.role_type }}{% if e.role_type == 'manager' %} · team of {{ e.team_size }}{% endif %}
-                    </span>
-                </td>
-                <td>₦{{ "{:,.2f}".format(e.salary) }}</td>
-                <td class="text-end">
-                    <a href="{{ url_for('edit_employee', employee_id=e.employee_id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#raiseModal{{ e.employee_id }}">Raise</button>
-                    <form method="POST" action="{{ url_for('delete_employee', employee_id=e.employee_id) }}" class="d-inline" onsubmit="return confirm('Remove this employee?');">
-                        <button class="btn btn-sm btn-outline-danger">Delete</button>
-                    </form>
-                </td>
-            </tr>
-            <div class="modal fade" id="raiseModal{{ e.employee_id }}" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form method="POST" action="{{ url_for('give_raise', employee_id=e.employee_id) }}">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Give {{ e.full_name }} a raise</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+
+<!-- Search & Filter Controls -->
+<div class="card card-modern mb-4">
+    <div class="p-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div class="d-flex flex-grow-1 gap-2" style="max-width: 480px;">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                <input type="text" id="empSearch" class="form-control bg-light border-start-0 ps-0" placeholder="Search by name, email, or position...">
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small fw-semibold">Filter Role:</span>
+            <select id="roleFilter" class="form-select form-select-sm" style="width: auto;">
+                <option value="all">All Roles ({{ employees|length }})</option>
+                <option value="manager">Managers Only</option>
+                <option value="staff">Staff Only</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="card card-modern overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-custom mb-0" id="employeesTable">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Role & Hierarchy</th>
+                    <th>Department & Position</th>
+                    <th>Compensation</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for e in employees %}
+                <tr data-role="{{ e.role_type }}">
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="avatar-circle">
+                                {{ e._first_name[0] }}{{ e._last_name[0] }}
                             </div>
-                            <div class="modal-body">
-                                <label class="form-label">Percentage increase</label>
-                                <input type="number" step="0.1" class="form-control" name="percent" value="5" required>
+                            <div>
+                                <div class="fw-bold text-dark emp-name">{{ e.full_name }}</div>
+                                <div class="text-muted small d-flex align-items-center gap-1">
+                                    <i class="bi bi-envelope"></i> {{ e.email }}
+                                    {% if e.phone %}
+                                        <span class="mx-1">•</span>
+                                        <i class="bi bi-telephone"></i> {{ e.phone }}
+                                    {% endif %}
+                                </div>
                             </div>
-                            <div class="modal-footer">
-                                <button type="submit" class="btn btn-success">Apply</button>
-                            </div>
-                        </form>
+                        </div>
+                    </td>
+                    <td>
+                        {% if e.role_type == 'manager' %}
+                            <span class="badge badge-manager d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-star-fill text-warning"></i> Manager
+                                {% if e.team_size and e.team_size > 0 %}
+                                    <span class="badge bg-white text-purple ms-1" style="color: #7c3aed; font-weight: 700;">team: {{ e.team_size }}</span>
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            <span class="badge badge-staff d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-person-fill"></i> Staff
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="fw-semibold text-dark">{{ e.position }}</div>
+                        <div class="badge badge-dept mt-1">
+                            <i class="bi bi-building me-1 text-primary"></i>{{ e.department_name }}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-dark fs-6">₦{{ "{:,.2f}".format(e.salary) }}</div>
+                        <div class="text-muted small" style="font-size: 0.76rem;">Hired: {{ e.hire_date }}</div>
+                    </td>
+                    <td class="text-end">
+                        <div class="d-inline-flex gap-2">
+                            <button class="btn btn-sm btn-outline-success d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#raiseModal{{ e.employee_id }}" title="Give Salary Raise">
+                                <i class="bi bi-graph-up-arrow"></i> Raise
+                            </button>
+                            <a href="{{ url_for('edit_employee', employee_id=e.employee_id) }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" title="Edit Employee">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <form method="POST" action="{{ url_for('delete_employee', employee_id=e.employee_id) }}" class="d-inline" onsubmit="return confirm('Remove employee {{ e.full_name }}?');">
+                                <button class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1" title="Delete Employee">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Modern Raise Modal -->
+                <div class="modal fade" id="raiseModal{{ e.employee_id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                            <form method="POST" action="{{ url_for('give_raise', employee_id=e.employee_id) }}">
+                                <div class="modal-header bg-light border-bottom p-4">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="avatar-circle">
+                                            {{ e._first_name[0] }}{{ e._last_name[0] }}
+                                        </div>
+                                        <div>
+                                            <h5 class="modal-title fw-bold mb-0">Apply Salary Raise</h5>
+                                            <div class="text-muted small">{{ e.full_name }} • {{ e.position }}</div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body p-4">
+                                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                                        <div class="text-muted small">Current Base Salary</div>
+                                        <div class="fs-5 fw-bold text-dark">₦{{ "{:,.2f}".format(e.salary) }}</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">Percentage Increase (%)</label>
+                                        <div class="input-group">
+                                            <input type="number" step="0.5" min="0.1" max="100" class="form-control" name="percent" value="5" required id="raiseInput{{ e.employee_id }}">
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                        <div class="form-text">Executes the domain method <code>give_raise(percent)</code> and commits update to DB.</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer bg-light border-top p-3">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-success d-flex align-items-center gap-2">
+                                        <i class="bi bi-check2-circle"></i> Confirm Raise
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
-            </div>
-        {% endfor %}
-        </tbody>
-    </table>
+            {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted">
+                        <i class="bi bi-people fs-1 d-block mb-2 text-secondary"></i>
+                        No employees registered in database.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const empSearch = document.getElementById('empSearch');
+    const roleFilter = document.getElementById('roleFilter');
+    const rows = document.querySelectorAll('#employeesTable tbody tr');
+
+    function filterEmployees() {
+        const term = empSearch ? empSearch.value.toLowerCase() : '';
+        const role = roleFilter ? roleFilter.value : 'all';
+
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            const rowRole = row.getAttribute('data-role');
+            const matchesSearch = text.includes(term);
+            const matchesRole = (role === 'all' || rowRole === role);
+
+            row.style.display = (matchesSearch && matchesRole) ? '' : 'none';
+        });
+    }
+
+    empSearch?.addEventListener('keyup', filterEmployees);
+    roleFilter?.addEventListener('change', filterEmployees);
+</script>
 {% endblock %}

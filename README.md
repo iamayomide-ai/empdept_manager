@@ -48,76 +48,151 @@ This follows a lightweight **MVC pattern**: `models.py` is the Model,
 
 ---
 
-## 3. OOP Concepts Demonstrated (for your defense)
+## 3. Database Architecture & ER Model
 
-| Concept | Where |
-|---|---|
-| **Abstraction** | `Person` in `models.py` is an `ABC` with an `@abstractmethod describe()` — it can never be instantiated directly. |
-| **Inheritance** | `Employee(Person)` and `Manager(Employee)` — a Manager *is an* Employee *is a* Person. |
-| **Encapsulation** | `email` and `salary` are private (`_email`, `_salary`) and only changed through validated `@property` setters (e.g. salary can't go negative, email must contain `@`). |
-| **Polymorphism** | `describe()` behaves differently for `Employee` vs `Manager` even though both are called the same way. |
-| **Factory Method** | `EmployeeRepository._row_to_object()` decides at runtime whether to build an `Employee` or a `Manager` from a database row. |
-| **Repository / DAO pattern** | `DepartmentRepository` and `EmployeeRepository` isolate all raw SQL from the rest of the app — the rest of the code never writes SQL directly. |
-| **Behaviour, not just data** | `Employee.give_raise(percent)` is a real method that mutates state with logic — not just a getter/setter. |
+### Cardinality
+- **One-to-Many (1:N)**: One **Department** contains zero or more **Employees**. Each **Employee** belongs to exactly one **Department**.
 
----
+```mermaid
+erDiagram
+    DEPARTMENTS ||--o{ EMPLOYEES : "employs"
+    
+    DEPARTMENTS {
+        INTEGER department_id PK "AUTOINCREMENT"
+        TEXT name UK "NOT NULL, UNIQUE"
+        TEXT location "NOT NULL"
+        REAL budget "NOT NULL, DEFAULT 0"
+        TEXT created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
 
-## 4. Database Design
-
-Two tables, one relationship:
-
+    EMPLOYEES {
+        INTEGER employee_id PK "AUTOINCREMENT"
+        TEXT first_name "NOT NULL"
+        TEXT last_name "NOT NULL"
+        TEXT email UK "NOT NULL, UNIQUE"
+        TEXT phone "NULLABLE"
+        TEXT position "NOT NULL"
+        REAL salary "NOT NULL, CHECK (salary >= 0)"
+        TEXT hire_date "NOT NULL"
+        TEXT role_type "NOT NULL, CHECK ('staff', 'manager')"
+        INTEGER team_size "NULLABLE (Manager only)"
+        INTEGER department_id FK "NOT NULL, REFERENCES departments"
+        TEXT created_at "DEFAULT CURRENT_TIMESTAMP"
+    }
 ```
-departments (1) ───< (many) employees
+
+---
+
+## 4. Relational Database Normalization Proof (Up to 3NF)
+
+| Normal Form | Requirement | How It Is Satisfied in This Project |
+| :--- | :--- | :--- |
+| **1NF (First Normal Form)** | Atomic columns, primary keys, and no repeating groups. | Every column holds an indivisible data value (e.g. `first_name` and `last_name` are separated). Each table possesses a surrogate Primary Key (`department_id`, `employee_id`). |
+| **2NF (Second Normal Form)** | In 1NF and no partial functional dependencies (all non-key attributes fully depend on the full PK). | Both tables use single-column Primary Keys (`department_id` and `employee_id`). Therefore, partial functional dependency cannot exist. |
+| **3NF (Third Normal Form)** | In 2NF and no transitive dependencies (no non-key attribute depends on another non-key attribute). | In `employees`, all employee attributes depend strictly on `employee_id`. Department details (`name`, `location`, `budget`) are stored in `departments` rather than duplicated in `employees`, eliminating update/insertion/deletion anomalies. |
+
+> **Single-Table Inheritance**: The `employees` table stores both `staff` and `manager` roles, differentiated by `role_type`. The `team_size` column is populated for managers and `NULL` for staff. This is the standard **Single-Table Inheritance** pattern, chosen to avoid unnecessary table joins while maintaining sub-millisecond query retrieval.
+
+---
+
+## 5. Database Constraints & Data Integrity
+
+1. **Entity Integrity**: `department_id` and `employee_id` are `INTEGER PRIMARY KEY AUTOINCREMENT`.
+2. **Referential Integrity**: `FOREIGN KEY (department_id) REFERENCES departments(department_id) ON DELETE CASCADE ON UPDATE CASCADE`. Deleting a department automatically cascades to remove related employee records, preventing orphaned data.
+3. **Domain Integrity**: `CHECK (salary >= 0)`, `CHECK (role_type IN ('staff', 'manager'))`, and `NOT NULL` on mandatory columns.
+4. **Unique Constraints**: `departments.name UNIQUE` and `employees.email UNIQUE` prevent duplicate records.
+5. **Runtime Foreign Key Enforcement**: SQLite disables foreign keys by default for backwards compatibility; our connection layer explicitly executes `PRAGMA foreign_keys = ON;` upon connection creation.
+
+---
+
+## 6. Query Optimization & Eliminating the N+1 Problem
+
+### A. Solving the N+1 Query Problem in Department Listings
+* **Naive Iterative Approach (Anti-pattern)**:
+  Executing 1 query to fetch departments, followed by a loop in Python executing \(N\) separate `COUNT(*)` queries for each department (Total: \(1 + N\) queries).
+* **Our Optimized SQL Approach (1 Query)**:
+  We execute a single query using `LEFT JOIN` and `GROUP BY`:
+  ```sql
+  SELECT d.department_id, d.name, d.location, d.budget,
+         COUNT(e.employee_id) AS employee_count
+  FROM departments d
+  LEFT JOIN employees e ON d.department_id = e.department_id
+  GROUP BY d.department_id
+  ORDER BY d.name;
+  ```
+  *Why `LEFT JOIN`?* A standard `INNER JOIN` would drop departments that currently have zero employees. `LEFT JOIN` guarantees all departments are returned with an accurate count of `0`.
+
+### B. In-Database Aggregation vs. In-Memory Python Calculations
+Instead of loading all employee rows across the network into application memory to calculate metrics, we delegate calculations to SQLite's C-level engine:
+```sql
+SELECT 
+    COUNT(*) AS total_employees,
+    COALESCE(SUM(salary), 0) AS total_payroll,
+    COUNT(CASE WHEN role_type = 'manager' THEN 1 END) AS manager_count
+FROM employees;
 ```
 
-- `departments`: department_id (PK), name, location, budget
-- `employees`: employee_id (PK), ..., role_type (staff/manager), department_id (FK → departments)
-
-Referential integrity is enforced with a `FOREIGN KEY ... ON DELETE CASCADE`,
-and `role_type` uses a `CHECK` constraint. See `schema.sql` for full DDL.
-
-> Note: employees uses **single-table inheritance** — one `employees` table
-> stores both `Employee` and `Manager` rows, distinguished by `role_type`.
-> This is a standard technique for mapping class hierarchies to relational
-> databases, and is a good talking point if asked "how did you map
-> inheritance to SQL?"
-
----
-
-## 5. Features
-- Dashboard with live stats (headcount, managers, total payroll)
-- Full CRUD for Departments and Employees
-- Manager vs Staff role distinction with role-specific fields (team size)
-- "Give Raise" action — demonstrates calling real OOP behavior, not just editing a field
-- Input validation at the model layer (email format, non-negative salary)
-- Seeded demo data so the app is populated on first run
-
----
-
-## 6. Git Setup
-```bash
-git init
-git add .
-git commit -m "Initial commit: Employee & Department Management System"
+### C. B-Tree Indexing for Foreign Keys
+Foreign keys are not automatically indexed by SQLite. We explicitly created:
+```sql
+CREATE INDEX idx_employees_department ON employees(department_id);
 ```
-(`.gitignore` already excludes the database file, `__pycache__`, and venv.)
+- **Performance Impact**: Searching, filtering, and joining employees by department drops from \(O(N)\) full-table scan to \(O(\log N)\) logarithmic B-Tree lookup.
 
 ---
 
-## 7. Possible Defense Questions & Answers
+## 7. Security: SQL Injection (SQLi) Prevention
 
-**Q: Why SQLite instead of PostgreSQL/MySQL?**
-A: SQLite is file-based, requires no separate server, and is ideal for a
-self-contained demo. The repository pattern in `models.py` means swapping
-to PostgreSQL only requires changing `database.py` — no other file touches
-SQL directly.
+All database interactions throughout `models.py` use **parameterized queries (prepared statements)** with `?` placeholders:
+```python
+# SECURE: SQL engine compiles the query template before binding parameters
+cur.execute("SELECT * FROM departments WHERE department_id = ?", (department_id,))
+```
+User inputs are treated strictly as literal data, completely neutralizing SQL Injection attacks.
 
-**Q: How is this "OOP" and not just a CRUD app?**
-A: The domain objects (`Employee`, `Manager`, `Department`) carry both data
-*and* behavior (e.g. `give_raise()`, validated setters), and the class
-hierarchy (`Person → Employee → Manager`) models a real-world "is-a"
-relationship, with polymorphic `describe()`.
+---
 
-**Q: Why Docker?**
-A: It guarantees the app runs identically on any machine (including the
-panel's), without needing them to install Python or dependencies manually.
+## 8. Crash-Resilient Error Handling
+
+In production and live defense demonstrations, attempting to insert duplicate records (e.g., an existing email or department name) raises `sqlite3.IntegrityError`. 
+
+The controller layer (`app.py`) captures these constraint violations gracefully:
+```python
+try:
+    dept_repo.create(d)
+    flash(f"Department '{d.name}' created successfully.", "success")
+except sqlite3.IntegrityError:
+    flash("A department with this name already exists (UNIQUE constraint violated).", "danger")
+```
+This prevents HTTP 500 crashes and provides clear visual feedback to examiners during testing.
+
+---
+
+## 9. SIWES Defense Panel Q&A Cheatsheet
+
+Prepare for these high-probability questions during your database defense:
+
+### Q1: Why did you choose SQLite over a client-server RDBMS like PostgreSQL or MySQL?
+> **Answer**: SQLite is serverless, zero-configuration, transactional, and stores the entire database in a single cross-platform disk file (`empdept.db`). It is lightweight and ideal for embedded applications, testing, and self-contained demonstrations. Because we implemented the **Repository (DAO) pattern**, the data access layer is isolated; switching to PostgreSQL or MySQL would only require changing the connection driver in `database.py` without touching any business logic.
+
+### Q2: How does your database maintain referential integrity?
+> **Answer**: Referential integrity is enforced at the schema level using a Foreign Key constraint on `employees.department_id` pointing to `departments.department_id`, configured with `ON DELETE CASCADE` and `ON UPDATE CASCADE`. In SQLite, foreign key enforcement is turned on explicitly at connection initialization using `PRAGMA foreign_keys = ON;`.
+
+### Q3: What is the N+1 query problem, and how did you resolve it?
+> **Answer**: The N+1 query problem occurs when an application executes 1 query to fetch parent records and then executes \(N\) subsequent queries in a loop to fetch related child data, creating severe database latency. In our department listing, we resolved this by executing a single query combining `LEFT JOIN` and `GROUP BY`, aggregating employee counts directly within the database engine in a single round-trip.
+
+### Q4: Why use `LEFT JOIN` instead of `INNER JOIN` when listing departments?
+> **Answer**: An `INNER JOIN` only returns rows where there is a match in both tables. If a newly created department has no employees assigned yet, an `INNER JOIN` would exclude that department from the output. A `LEFT JOIN` retains all records from the left table (`departments`) and fills unmatched columns from the right table with `NULL`, allowing `COUNT(e.employee_id)` to evaluate to `0`.
+
+### Q5: What are ACID properties and how does your database uphold them?
+> **Answer**:
+> - **Atomicity**: Transactions in SQLite are all-or-nothing; if an error occurs during execution, the transaction rolls back.
+> - **Consistency**: Enforced through schema rules (`NOT NULL`, `CHECK (salary >= 0)`, `UNIQUE`, and Foreign Keys).
+> - **Isolation**: SQLite provides serialized transactions using database locking mechanisms to prevent dirty reads.
+> - **Durability**: Once a transaction is committed, changes are written directly to disk storage (`empdept.db`).
+
+### Q6: Why did you create an index on `employees(department_id)`?
+> **Answer**: In relational databases, primary keys are automatically indexed, but foreign keys are not. Since `department_id` is constantly used as a join condition and filtering predicate, creating a B-Tree index improves search performance from an \(O(N)\) full table scan to \(O(\log N)\) tree traversal.
+
+### Q7: How does your system prevent SQL Injection?
+> **Answer**: By strictly using parameterized queries with question-mark placeholders (`?`) provided by the Python DB-API. The database driver compiles the SQL structure separately from the input parameters, ensuring user data is never parsed as executable SQL commands.

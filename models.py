@@ -144,6 +144,27 @@ class DepartmentRepository:
         )
         return r["cnt"] if r else 0
 
+    def get_all_with_counts(self):
+        """Fetches all departments with their employee count in a single query
+        using LEFT JOIN and GROUP BY, completely eliminating the N+1 query problem."""
+        query = """
+            SELECT d.department_id, d.name, d.location, d.budget,
+                   COUNT(e.employee_id) AS employee_count
+            FROM departments d
+            LEFT JOIN employees e ON d.department_id = e.department_id
+            GROUP BY d.department_id
+            ORDER BY d.name
+        """
+        rows = self.db.fetch_all(query)
+        departments = []
+        counts = {}
+        for r in rows:
+            dept = Department(r["name"], r["location"], r["budget"], r["department_id"])
+            dept.employee_count = r["employee_count"]
+            departments.append(dept)
+            counts[dept.department_id] = r["employee_count"]
+        return departments, counts
+
 
 class EmployeeRepository:
     def __init__(self):
@@ -206,3 +227,20 @@ class EmployeeRepository:
 
     def delete(self, employee_id):
         self.db.execute("DELETE FROM employees WHERE employee_id = ?", (employee_id,))
+
+    def get_dashboard_stats(self):
+        """Calculates dashboard aggregations in a single query directly inside SQLite,
+        leveraging DBMS aggregate functions instead of loading rows into application memory."""
+        query = """
+            SELECT 
+                COUNT(*) AS total_employees,
+                COALESCE(SUM(salary), 0) AS total_payroll,
+                COUNT(CASE WHEN role_type = 'manager' THEN 1 END) AS manager_count
+            FROM employees
+        """
+        r = self.db.fetch_one(query)
+        return {
+            "total_employees": r["total_employees"] if r else 0,
+            "total_payroll": r["total_payroll"] if r else 0.0,
+            "manager_count": r["manager_count"] if r else 0,
+        }

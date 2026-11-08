@@ -60,6 +60,7 @@ def init_db(force=False):
     """Initialize the database from schema.sql. Safe to call once at startup."""
     if force or not os.path.exists(DB_PATH):
         conn = sqlite3.connect(DB_PATH)
+        conn.execute("PRAGMA foreign_keys = ON")
         with open(SCHEMA_PATH, "r") as f:
             conn.executescript(f.read())
         conn.commit()

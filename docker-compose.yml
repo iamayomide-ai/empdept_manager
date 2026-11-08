@@ -7,5 +7,5 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./empdept.db:/app/empdept.db   # persist the SQLite DB on the host
+      - ./empdept.db:/app/empdept.db
     restart: unless-stopped
